@@ -57,7 +57,8 @@ type Scheduler struct {
 
 // NewScheduler initializes a Scheduler, and it is the only correct way to
 // initialize one. It takes as its arguments the maximum number of concurrent
-// tasks that the Scheduler can be running.
+// tasks that the Scheduler can be running. It also uses maxJobs as its
+// default MaxQueueDepth. MaxQueueDepth can be changed at any time.
 func NewScheduler(maxJobs uint) *Scheduler {
 	s := &Scheduler{
 		MaxQueueDepth: maxJobs,
@@ -79,7 +80,7 @@ func NewScheduler(maxJobs uint) *Scheduler {
 func (s *Scheduler) Submit(t Task) (*Job, error) {
 	s.mutex.Lock()
 	if uint(len(s.jobqueue)) >= s.MaxQueueDepth {
-		return nil, errors.New("Task would exceed MaxQueueDepth.")
+		return nil, errors.New("Scheduler MaxQueueDepth exeeded.")
 	}
 
 	j := &Job{
