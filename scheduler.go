@@ -79,6 +79,8 @@ func NewScheduler(maxJobs uint) *Scheduler {
 // (either manually or via timeout/deadline).
 func (s *Scheduler) Submit(t Task) (*Job, error) {
 	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
 	if uint(len(s.jobqueue)) >= s.MaxQueueDepth {
 		return nil, errors.New("Scheduler MaxQueueDepth exeeded.")
 	}
@@ -89,7 +91,6 @@ func (s *Scheduler) Submit(t Task) (*Job, error) {
 		resultChan: make(chan interface{}, 1),
 	}
 	s.jobqueue <- j
-	s.mutex.Unlock()
 
 	return j, nil
 }
