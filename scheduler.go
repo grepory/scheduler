@@ -110,13 +110,15 @@ func (s *Scheduler) start() {
 			case id := <-s.workers:
 				go func(j *Job, i int) {
 					res, err := j.task.Execute()
+					defer func() {
+						s.workers <- i
+					}()
 					if err != nil {
 						j.errChan <- err
 						return
 					}
 
 					j.resultChan <- res
-					s.workers <- i
 				}(job, id)
 			}
 		}
