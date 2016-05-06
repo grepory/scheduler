@@ -86,7 +86,7 @@ func (s *Scheduler) Submit(t Task) (*Job, error) {
 	}
 
 	j := &Job{
-		Task:       t,
+		task:       t,
 		errChan:    make(chan error, 1),
 		resultChan: make(chan interface{}, 1),
 	}
