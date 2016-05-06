@@ -50,9 +50,10 @@ type Scheduler struct {
 	// will allow before it will stop accepting jobs.
 	MaxQueueDepth uint
 
-	jobqueue chan *Job
-	workers  chan int
-	mutex    sync.Mutex
+	queueDepth uint
+	jobqueue   chan *Job
+	workers    chan int
+	mutex      sync.Mutex
 }
 
 // NewScheduler initializes a Scheduler, and it is the only correct way to
@@ -64,6 +65,7 @@ func NewScheduler(maxJobs uint) *Scheduler {
 		MaxQueueDepth: maxJobs,
 		workers:       make(chan int, maxJobs),
 		jobqueue:      make(chan *Job, maxJobs),
+		queueDepth:    0,
 	}
 	for i := 0; i < int(maxJobs); i++ {
 		s.workers <- i
@@ -81,7 +83,7 @@ func (s *Scheduler) Submit(t Task) (*Job, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	if uint(len(s.jobqueue)) >= s.MaxQueueDepth {
+	if s.queueDepth >= s.MaxQueueDepth {
 		return nil, errors.New("Scheduler MaxQueueDepth exeeded.")
 	}
 
@@ -91,19 +93,22 @@ func (s *Scheduler) Submit(t Task) (*Job, error) {
 		resultChan: make(chan interface{}, 1),
 	}
 	s.jobqueue <- j
+	s.queueDepth += 1
 
 	return j, nil
 }
 
 // QueueDepth returns the current number of jobs waiting to be scheduled.
 func (s *Scheduler) QueueDepth() int {
-	return len(s.jobqueue)
+	return int(s.queueDepth)
 }
 
 func (s *Scheduler) start() {
 	go func() {
-		for job := range s.jobqueue {
+		for {
+			job := <-s.jobqueue
 			t := job.task
+
 			select {
 			case <-t.Context().Done():
 				job.errChan <- t.Context().Err()
@@ -121,6 +126,10 @@ func (s *Scheduler) start() {
 					j.resultChan <- res
 				}(job, id)
 			}
+
+			s.mutex.Lock()
+			s.queueDepth -= 1
+			s.mutex.Unlock()
 		}
 
 	}()

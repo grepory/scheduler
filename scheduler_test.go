@@ -8,46 +8,51 @@ import (
 )
 
 type testTask struct {
-	id       int
-	ctx      context.Context
-	result   int
-	executed bool
+	id        int
+	ctx       context.Context
+	result    int
+	executed  bool
+	executefn func(*testTask) (interface{}, error)
 }
 
-func (j *testTask) Context() context.Context {
-	return j.ctx
+func (t *testTask) Context() context.Context {
+	return t.ctx
 }
 
-func (j *testTask) Execute() (interface{}, error) {
-	j.executed = true
-	time.Sleep(20 * time.Millisecond)
-	return 1, nil
+func (t *testTask) Execute() (interface{}, error) {
+	return t.executefn(t)
 }
 
 func TestMaxConcurrency(t *testing.T) {
 	// I realize this is not the best test in the world. It gets the job
 	// done though. -greg
 
+	executefn := func(t *testTask) (interface{}, error) {
+		t.executed = true
+		time.Sleep(20 * time.Millisecond)
+		return 1, nil
+	}
+
 	s := NewScheduler(2)
 	s.MaxQueueDepth = 3
 	var ctx context.Context
 
 	ctx, _ = context.WithTimeout(context.Background(), 5*time.Millisecond)
-	t1 := &testTask{1, ctx, 0, false}
+	t1 := &testTask{1, ctx, 0, false, executefn}
 	j1, err := s.Submit(t1)
 	if err != nil || j1 == nil {
 		t.Error("Error scheduling t1")
 	}
 
 	ctx, _ = context.WithTimeout(context.Background(), 5*time.Millisecond)
-	t2 := &testTask{2, ctx, 0, false}
+	t2 := &testTask{2, ctx, 0, false, executefn}
 	j2, err := s.Submit(t2)
 	if err != nil || j2 == nil {
 		t.Error("Error scheduling t2")
 	}
 
 	ctx, _ = context.WithTimeout(context.Background(), 5*time.Millisecond)
-	t3 := &testTask{3, ctx, 0, false}
+	t3 := &testTask{3, ctx, 0, false, executefn}
 	j3, err := s.Submit(t3)
 	if err != nil || j3 == nil {
 		t.Error("Error scheduling t3: ", err)
@@ -68,5 +73,73 @@ func TestMaxConcurrency(t *testing.T) {
 
 	if t3.executed {
 		t.Error("Expected t3 not to be executed.")
+	}
+}
+
+func TestMaxQueueDepth(t *testing.T) {
+	c := make(chan interface{})
+	executefn := func(t *testTask) (interface{}, error) {
+		t.executed = true
+		<-c
+		return 1, nil
+	}
+
+	s := NewScheduler(1)
+	// MaxQueueDepth is 1
+
+	t1 := &testTask{1, context.Background(), 0, false, executefn}
+	j1, err := s.Submit(t1)
+	if err != nil || j1 == nil {
+		t.Error("Error scheduling t1")
+	}
+
+	// Eventually t1 will start executing, retry scheduling this until it is
+	// accepted... to some extent.
+	var retryCount int
+
+	// Sorry nerds, but this is more readable.
+	t2 := &testTask{1, context.Background(), 0, false, executefn}
+	var j2 *Job
+	for retryCount = 1; retryCount <= 10; retryCount++ {
+		j2, err = s.Submit(t2)
+		if err != nil || j2 == nil {
+			time.Sleep(1 * time.Millisecond)
+			continue
+		} else {
+			break
+		}
+	}
+	if j2 == nil {
+		t.Error("Failed to schedule t2.")
+		t.FailNow()
+	}
+
+	if s.QueueDepth() != 1 {
+		t.Error("Queue depth is not 1.", s.QueueDepth())
+		t.Fail()
+	}
+
+	t3 := &testTask{1, context.Background(), 0, false, executefn}
+	j3, err := s.Submit(t3)
+	if err == nil || j3 != nil {
+		t.Error("Expected not to be able to schedule t3")
+	}
+
+	// Clear the queue.
+	close(c)
+
+	c = make(chan interface{})
+	defer close(c)
+	for retryCount = 1; retryCount <= 10; retryCount++ {
+		j3, err = s.Submit(t3)
+		if err != nil || j3 == nil {
+			time.Sleep(1 * time.Millisecond)
+			continue
+		} else {
+			break
+		}
+	}
+	if j3 == nil {
+		t.Error("Failed to schedule t3.")
 	}
 }
