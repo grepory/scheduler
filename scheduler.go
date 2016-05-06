@@ -27,7 +27,7 @@ type Task interface {
 // A Job is a unit of work to be done by the scheduler. It encapsulates a task
 // throughout its lifetime in the scheduler.
 type Job struct {
-	Task       Task
+	task       Task
 	errChan    chan error
 	resultChan chan interface{}
 }
@@ -101,13 +101,13 @@ func (s *Scheduler) QueueDepth() int {
 func (s *Scheduler) start() {
 	go func() {
 		for job := range s.jobqueue {
-			t := job.Task
+			t := job.task
 			select {
 			case <-t.Context().Done():
 				job.errChan <- t.Context().Err()
 			case id := <-s.workers:
 				go func(j *Job, i int) {
-					res, err := j.Task.Execute()
+					res, err := j.task.Execute()
 					if err != nil {
 						j.errChan <- err
 						return
