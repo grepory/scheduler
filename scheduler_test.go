@@ -128,19 +128,28 @@ func TestMaxQueueDepth(t *testing.T) {
 	// Clear the queue.
 	close(c)
 
-	c = make(chan interface{})
-	defer close(c)
+	c2 := make(chan interface{})
+	defer close(c2)
+
+	executefn2 := func(t *testTask) (interface{}, error) {
+		t.executed = true
+		<-c2
+		return 1, nil
+	}
+
+	t4 := &testTask{1, context.Background(), 0, false, executefn2}
+	var j4 *Job
 	for retryCount = 1; retryCount <= 10; retryCount++ {
-		j3, err = s.Submit(t3)
-		if err != nil || j3 == nil {
+		j4, err = s.Submit(t4)
+		if err != nil || j4 == nil {
 			time.Sleep(1 * time.Millisecond)
 			continue
 		} else {
 			break
 		}
 	}
-	if j3 == nil {
-		t.Error("Failed to schedule t3.")
+	if j4 == nil {
+		t.Error("Failed to schedule t4.")
 	}
 }
 
@@ -154,13 +163,13 @@ func TestContextCancelled(t *testing.T) {
 	cancel()
 
 	s := NewScheduler(1)
-	t1 := testTask{1, ctx, 0, false, executefn}
+	t1 := &testTask{1, ctx, 0, false, executefn}
 	_, err := s.Submit(t1)
 	if err != nil {
-		t.Fail("Could not schedule task.")
+		t.Error("Could not schedule task.")
 	}
 
 	if t1.executed {
-		t.Fail("Executed task with cancelled context.")
+		t.Error("Executed task with cancelled centext.")
 	}
 }
