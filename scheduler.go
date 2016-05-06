@@ -16,9 +16,11 @@ type Task interface {
 	// into a task to be used during execution.
 	Context() context.Context
 
-	// Execute() must return a non-nil error upon success. If an error is
-	// returned alongside a result, there is no guarantee that the the
-	// result will be read from the encapsulating Job.
+	// Execute() should return the result of the tasks's processing or an
+	// error if there was a problem during task execution. Care should be
+	// taken not to return both a result and an error, as it the behavior
+	// of Job.Result() will be non-deterministic if both a result and an
+	// error are available.
 	Execute() (interface{}, error)
 }
 
