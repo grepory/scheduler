@@ -143,3 +143,24 @@ func TestMaxQueueDepth(t *testing.T) {
 		t.Error("Failed to schedule t3.")
 	}
 }
+
+func TestContextCancelled(t *testing.T) {
+	executefn := func(t *testTask) (interface{}, error) {
+		t.executed = true
+		return 1, nil
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	s := NewScheduler(1)
+	t1 := testTask{1, ctx, 0, false, executefn}
+	_, err := s.Submit(t1)
+	if err != nil {
+		t.Fail("Could not schedule task.")
+	}
+
+	if t1.executed {
+		t.Fail("Executed task with cancelled context.")
+	}
+}

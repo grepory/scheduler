@@ -109,6 +109,19 @@ func (s *Scheduler) start() {
 			job := <-s.jobqueue
 			t := job.task
 
+			// Ensure that we do not try to schedule expired tasks.
+			// Select is non-deterministic. If the context is already
+			// expired, then we should detect that and skip the rest.
+
+			select {
+			case <-t.Context().Done():
+				s.mutex.Lock()
+				s.queueDepth -= 1
+				s.mutex.Unlock()
+				continue
+			default:
+			}
+
 			select {
 			case <-t.Context().Done():
 				job.errChan <- t.Context().Err()
