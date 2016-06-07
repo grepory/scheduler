@@ -34,7 +34,6 @@ func TestMaxConcurrency(t *testing.T) {
 	}
 
 	s := NewScheduler(2)
-	s.MaxQueueDepth = 3
 	var ctx context.Context
 
 	ctx, _ = context.WithTimeout(context.Background(), 5*time.Millisecond)
@@ -54,8 +53,8 @@ func TestMaxConcurrency(t *testing.T) {
 	ctx, _ = context.WithTimeout(context.Background(), 5*time.Millisecond)
 	t3 := &testTask{3, ctx, 0, false, executefn}
 	j3, err := s.Submit(t3)
-	if err != nil || j3 == nil {
-		t.Error("Error scheduling t3: ", err)
+	if err == nil || j3 != nil {
+		t.Error("Scheduling t3 should have failed.")
 	}
 
 	time.Sleep(100 * time.Millisecond)
@@ -65,14 +64,6 @@ func TestMaxConcurrency(t *testing.T) {
 
 	if res, err := j2.Result(); res == 0 || err != nil || !t2.executed {
 		t.Error("j2 failed.")
-	}
-
-	if res, err := j3.Result(); err == nil || res != nil {
-		t.Error("Expected j3 to fail with error and return no result.")
-	}
-
-	if t3.executed {
-		t.Error("Expected t3 not to be executed.")
 	}
 }
 

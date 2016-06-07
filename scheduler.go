@@ -46,23 +46,20 @@ func (j *Job) Result() (interface{}, error) {
 
 // Scheduler manages the parallel execution of a number of jobs.
 type Scheduler struct {
-	// MaxQueueDepth specifies the number of outstanding Jobs a scheduler
-	// will allow before it will stop accepting jobs.
-	MaxQueueDepth uint
-
-	queueDepth uint
-	jobqueue   chan *Job
-	workers    chan int
-	mutex      sync.Mutex
+	maxQueueDepth uint
+	queueDepth    uint
+	jobqueue      chan *Job
+	workers       chan int
+	mutex         sync.Mutex
 }
 
 // NewScheduler initializes a Scheduler, and it is the only correct way to
 // initialize one. It takes as its arguments the maximum number of concurrent
-// tasks that the Scheduler can be running. It also uses maxJobs as its
-// default MaxQueueDepth. MaxQueueDepth can be changed at any time.
+// tasks that the Scheduler can be running. It will queue up to maxJobs before
+// it begins to reject tasks.
 func NewScheduler(maxJobs uint) *Scheduler {
 	s := &Scheduler{
-		MaxQueueDepth: maxJobs,
+		maxQueueDepth: maxJobs,
 		workers:       make(chan int, maxJobs),
 		jobqueue:      make(chan *Job, maxJobs),
 		queueDepth:    0,
@@ -83,7 +80,7 @@ func (s *Scheduler) Submit(t Task) (*Job, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	if s.queueDepth >= s.MaxQueueDepth {
+	if s.queueDepth >= s.maxQueueDepth {
 		return nil, errors.New("Scheduler MaxQueueDepth exeeded.")
 	}
 
