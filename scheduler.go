@@ -81,7 +81,7 @@ func (s *Scheduler) Submit(t Task) (*Job, error) {
 	defer s.mutex.Unlock()
 
 	if s.queueDepth >= s.maxQueueDepth {
-		return nil, errors.New("Scheduler MaxQueueDepth exeeded.")
+		return nil, errors.New("scheduler MaxQueueDepth exeeded")
 	}
 
 	j := &Job{
@@ -90,7 +90,7 @@ func (s *Scheduler) Submit(t Task) (*Job, error) {
 		resultChan: make(chan interface{}, 1),
 	}
 	s.jobqueue <- j
-	s.queueDepth += 1
+	s.queueDepth++
 
 	return j, nil
 }
@@ -113,7 +113,7 @@ func (s *Scheduler) start() {
 			select {
 			case <-t.Context().Done():
 				s.mutex.Lock()
-				s.queueDepth -= 1
+				s.queueDepth--
 				s.mutex.Unlock()
 				continue
 			default:
@@ -138,7 +138,7 @@ func (s *Scheduler) start() {
 			}
 
 			s.mutex.Lock()
-			s.queueDepth -= 1
+			s.queueDepth--
 			s.mutex.Unlock()
 		}
 
